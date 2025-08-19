@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Spell Dash — 8‑Bit Runner</title>
+  <style>
+    :root{
+      --bg:#0e0e1a; --ink:#e8e6ff; --accent:#78ff6b; --accent2:#46a0ff; --danger:#ff4d6d;
+      --panel:#17172a; --line:#2a2a44; --gold:#f4d35e;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, "Apple Color Emoji","Segoe UI Emoji";}
+    .wrap{max-width:980px;margin:0 auto;padding:12px}
+    h1{font-size:clamp(20px,4vw,28px);letter-spacing:0.5px;margin:6px 0 10px}
+    .bar{display:grid;grid-template-columns:1fr;gap:10px}
+    @media (min-width:720px){.bar{grid-template-columns: 1.1fr 1fr;}}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px}
+    textarea{width:100%;min-height:88px;background:#0b0b16;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px;resize:vertical}
+    label{font-size:12px;opacity:.9}
+    .controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+    button,.btn{appearance:none;border:1px solid var(--line);background:#101024;color:var(--ink);padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:600}
+    button:hover{border-color:#4a4a78}
+    select,input[type="text"]{background:#0b0b16;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px}
+    .hud{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px}
+    .rings{font-size:18px;letter-spacing:2px}
+    .pill{padding:6px 10px;border-radius:999px;background:#101024;border:1px solid var(--line);font-weight:700}
+    .grid{display:grid;grid-template-columns:1fr;gap:10px}
+    @media (min-width:720px){.grid{grid-template-columns:1fr 1fr}}
+    .canvasBox{position:relative;aspect-ratio: 9/16; background:linear-gradient(#14203a,#0a0a14); border:1px solid var(--line);border-radius:16px;overflow:hidden}
+    canvas{width:100%;height:100%;image-rendering: pixelated;}
+    .overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55)}
+    .overlay.show{display:flex}
+    .overlay .panel{background:#0f0f1f;border:1px solid var(--line);padding:14px;border-radius:14px;text-align:center;max-width:85%}
+    .k{font-size:12px;opacity:.8}
+    .tiny{font-size:11px;opacity:.7}
+    .foot{margin-top:8px;opacity:.8;font-size:12px}
+    .scanlines::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(to bottom, rgba(255,255,255,0.04), rgba(255,255,255,0.04) 1px, transparent 1px, transparent 3px);pointer-events:none;mix-blend-mode:overlay}
+    .tip{opacity:.8;font-size:12px;margin-top:6px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🕹️ Spell Dash — 8‑Bit Runner</h1>
+    <div class="bar">
+      <div class="card">
+        <label for="wordList">Paste your spelling words (comma or newline separated). <span class="tiny">(Words shorter than 4 letters are skipped for fairness.)</span></label>
+        <textarea id="wordList" placeholder="example
+fantastic
+satisfy
+volcano
+remember
+neighborhood"></textarea>
+        <div class="controls">
+          <select id="hero">
+            <option value="bolt">Bolt (blue speedster)</option>
+            <option value="skye">Skye (orange glider)</option>
+            <option value="brick">Brick (red bruiser)</option>
+            <option value="shade">Shade (violet ninja)</option>
+          </select>
+          <button id="useWords">Use These Words</button>
+          <button id="shuffleWords" title="Shuffle the play order">Shuffle</button>
+          <button id="startBtn" class="btn" style="border-color:#3a3a7a">Start ▶</button>
+          <button id="muteBtn" title="Mute/unmute music and sounds">Mute 🔊</button>
+          <span class="tip">Swipe ◀ / ▶ (or use ◀ ▶ keys) to choose the correct spelling.</span>
+        </div>
+        <div class="hud">
+          <div><span class="pill">Score: <span id="score">0</span></span></div>
+          <div class="pill">Lives: <span id="lives" class="rings">⚪⚪⚪</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="canvasBox scanlines" id="canvasBox">
+          <canvas id="game" width="432" height="768"></canvas>
+          <div class="overlay" id="overlay">
+            <div class="panel">
+              <h3 id="ovTitle">Get Ready</h3>
+              <p id="ovMsg" class="k">Swipe left or right to pick the correct spelling. 3 lives. Good luck!</p>
+              <div style="margin-top:8px">
+                <button id="resumeBtn">Play</button>
+                <button id="restartBtn">Restart</button>
+              </div>
+              <p class="tiny" style="margin-top:8px">Tip: On desktop, use ◀ ▶ keys.</p>
+            </div>
+          </div>
+        </div>
+        <div class="foot">Note: Characters are original 8‑bit heroes inspired by classic platformers. No third‑party IP used.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Audio Assets -->
+  <!-- Put the following MP3 in the SAME folder as index.html when committing to GitHub -->
+  <audio id="bgm" src="bit-shift-kevin-macleod-main-version-24901-03-12.mp3" preload="auto" loop playsinline></audio>
+  <audio id="sfx-correct" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg" preload="auto"></audio>
+  <audio id="sfx-wrong" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg" preload="auto"></audio>
+  <audio id="sfx-gameover" src="https://actions.google.com/sounds/v1/cartoon/descending_whistle.ogg" preload="auto"></audio>
+
+  <script>
+  // -------- Utility: word handling --------
+  function parseWords(raw){
+    if(!raw) return [];
+    const parts = raw.split(/[
+,;]+/).map(w=>w.trim()).filter(Boolean);
+    const filtered = parts.filter(w=>w.length>=4); // enforce scramble fairness
+    return Array.from(new Set(filtered.map(w=>w.toLowerCase())));
+  }
+  function shuffleArray(a){ for(let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0; [a[i],a[j]]=[a[j],a[i]]} return a; }
+  function scrambleMiddle(word){
+    if(word.length<4) return word;
+    const first = word[0], last = word[word.length-1];
+    const midArr = word.slice(1,-1).split("");
+    let attempt = word, tries=0;
+    while(tries<10){
+      const arr=[...midArr];
+      for(let i=arr.length-1;i>0;i--){const j=(Math.random()*(i+1))|0; [arr[i],arr[j]]=[arr[j],arr[i]]}
+      attempt = first + arr.join("") + last;
+      if(attempt !== word) return attempt; tries++;
+    }
+    if(midArr.length>=2){ [midArr[0], midArr[1]] = [midArr[1], midArr[0]]; const fb = first + midArr.join("") + last; if(fb !== word) return fb; }
+    if(midArr.length>=3){ [midArr[midArr.length-2], midArr[midArr.length-3]] = [midArr[midArr.length-3], midArr[midArr.length-2]]; const fb2 = first + midArr.join("") + last; if(fb2 !== word) return fb2; }
+    return word;
+  }
+
+  // -------- Game State --------
+  const state = {
+    words: ["example","fantastic","satisfy","volcano","remember","neighborhood","usually","faithful"],
+    order: [], idx: 0, score: 0, lives: 3, playing: false, paused: true,
+    hero: 'bolt', lane: 1, blocks: [], speed: 3.2, spawnCooldown: 0, hitFreeze: 0
+  };
+
+  // -------- Canvas Setup --------
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const lanesX = [W*0.25, W*0.75];
+  const groundY = H-80;
+
+  const heroPal = {
+    bolt: {body:"#46a0ff", trim:"#e8e6ff"},
+    skye: {body:"#ff9e46", trim:"#fff0e8"},
+    brick:{body:"#ff5b5b", trim:"#ffe2e2"},
+    shade:{body:"#a46bff", trim:"#efe6ff"},
+  };
+  function drawHero(x,y,skin){
+    const p = heroPal[skin]||heroPal.bolt; const s=4;
+    function b(px,py,w,h,col){ctx.fillStyle=col;ctx.fillRect(x+px*s,y+py*s,w*s,h*s)}
+    b(-6,-10,12,12,p.body); b(-4,-8,8,2,p.trim); b(-5,2,3,2,"#222"); b(2,2,3,2,"#222");
+  }
+  function drawRingHUD(){ const ui=document.getElementById('lives'); ui.textContent=''; for(let i=0;i<state.lives;i++) ui.textContent+='⚪'; }
+  function setScore(n){ document.getElementById('score').textContent=n; }
+
+  function spawnBlocks(){
+    if(state.idx>=state.order.length) return;
+    const word = state.order[state.idx];
+    const wrong = scrambleMiddle(word);
+    let leftText, rightText;
+    if(Math.random()<0.5){ leftText=word; rightText=wrong; }
+    else{ leftText=wrong; rightText=word; }
+    const blockY=-30;
+    state.blocks=[
+      {lane:0,y:blockY,text:leftText,correct:leftText===word},
+      {lane:1,y:blockY,text:rightText,correct:rightText===word},
+    ];
+  }
+  function drawTrack(){
+    ctx.fillStyle = ctx.createLinearGradient(0,0,0,H);
+    ctx.fillStyle.addColorStop?.(0,'#0d1530'); ctx.fillStyle.addColorStop?.(1,'#05050b'); ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle='#1f2a4a'; ctx.lineWidth=2;
+    for(let i=0;i<16;i++){ ctx.beginPath(); ctx.moveTo(W*0.5, i*52 + (performance.now()/8 % 52)); ctx.lineTo(W*0.5, i*52 + 26 + (performance.now()/8 % 52)); ctx.stroke(); }
+    ctx.fillStyle='#0a0a12'; ctx.fillRect(0,groundY, W, 100);
+  }
+  function drawWordBlock(b){
+    const x = lanesX[b.lane], y=b.y; ctx.fillStyle=b.correct?'#1f6f1f':'#6f1f1f';
+    ctx.fillRect(x-110,y-28,220,52); ctx.strokeStyle='#ffffff22'; ctx.strokeRect(x-110,y-28,220,52);
+    ctx.fillStyle='#ffffff'; ctx.font='bold 28px monospace'; ctx.textAlign='center'; ctx.fillText(b.text,x,y+8);
+  }
+  function showOverlay(title,msg){ const ov=document.getElementById('overlay'); document.getElementById('ovTitle').textContent=title; document.getElementById('ovMsg').textContent=msg; ov.classList.add('show'); state.paused=true; state.playing=false; }
+  function hideOverlay(){ document.getElementById('overlay').classList.remove('show'); state.paused=false; state.playing=true; }
+  function resetGame(){ state.idx=0; state.score=0; state.lives=3; state.blocks=[]; state.lane=1; setScore(0); drawRingHUD(); spawnBlocks(); }
+
+  // -------- Input: swipe & keys --------
+  let touchStartX=null, touchStartY=null; const swipeThresh=30; const box=document.getElementById('canvasBox');
+  box.addEventListener('touchstart', e=>{ const t=e.changedTouches[0]; touchStartX=t.clientX; touchStartY=t.clientY;});
+  box.addEventListener('touchend', e=>{ const t=e.changedTouches[0]; const dx=t.clientX - touchStartX; const dy = Math.abs(t.clientY - touchStartY); if(Math.abs(dx)>swipeThresh && dy<120){ if(dx<0) state.lane=0; else state.lane=1; }});
+  window.addEventListener('keydown', e=>{ if(e.key==='ArrowLeft') state.lane=0; else if(e.key==='ArrowRight') state.lane=1; });
+
+  // -------- Audio --------
+  const bgm=document.getElementById('bgm');
+  const sfxCorrect=document.getElementById('sfx-correct');
+  const sfxWrong=document.getElementById('sfx-wrong');
+  const sfxGameover=document.getElementById('sfx-gameover');
+  let muted=false;
+  bgm.volume=0.35; // gentle background level
+  function playSfx(s){ if(!muted){ try{ s.currentTime=0; s.play(); }catch(e){} } }
+  function toggleMute(){
+    muted=!muted; const btn=document.getElementById('muteBtn');
+    if(muted){ bgm.pause(); btn.textContent='Unmute 🔇'; }
+    else { try{ bgm.play(); }catch(e){} btn.textContent='Mute 🔊'; }
+  }
+
+  // -------- Main Loop --------
+  function step(){
+    ctx.clearRect(0,0,W,H); drawTrack();
+    for(const b of state.blocks){ b.y += state.speed; drawWordBlock(b); }
+    const px = lanesX[state.lane]; const py = groundY - 16 + (state.hitFreeze>0 ? ((Math.random()*6)-3) : 0); drawHero(px,py,state.hero);
+    if(state.blocks.length && state.blocks[0].y >= groundY-20){
+      const chosen = state.blocks.find(b=>b.lane===state.lane); const correct = chosen && chosen.correct;
+      if(correct){ state.score++; setScore(state.score); playSfx(sfxCorrect); }
+      else { state.lives--; drawRingHUD(); state.hitFreeze=12; playSfx(sfxWrong); }
+      state.idx++; state.blocks=[];
+      if(state.lives<=0){ playSfx(sfxGameover); showOverlay('Game Over', `Final score: ${state.score}. Tap Restart to try again.`); }
+      else if(state.idx>=state.order.length){ showOverlay('All Done!', `You finished ${state.order.length} words with a score of ${state.score}.`); }
+      else { spawnBlocks(); }
+    }
+    if(state.hitFreeze>0) state.hitFreeze--; if(!state.paused) requestAnimationFrame(step);
+  }
+
+  // -------- UI Wiring --------
+  const wordListEl=document.getElementById('wordList');
+  const useBtn=document.getElementById('useWords');
+  const shuffleBtn=document.getElementById('shuffleWords');
+  const startBtn=document.getElementById('startBtn');
+  const resumeBtn=document.getElementById('resumeBtn');
+  const restartBtn=document.getElementById('restartBtn');
+  const heroSel=document.getElementById('hero');
+  const muteBtn=document.getElementById('muteBtn');
+
+  useBtn.addEventListener('click', ()=>{
+    const parsed = parseWords(wordListEl.value);
+    if(parsed.length===0){ alert('Please paste words that are at least 4 letters long.'); return; }
+    state.words = parsed; state.order=[...state.words]; state.idx=0; setScore(0); state.lives=3; drawRingHUD(); spawnBlocks();
+    showOverlay('Loaded!', `Using ${state.order.length} words. Tap Play to start.`);
+  });
+  shuffleBtn.addEventListener('click', ()=>{
+    if(!state.words.length){ alert('Load words first.'); return; }
+    state.order = shuffleArray([...state.words]); state.idx=0; setScore(0); state.lives=3; drawRingHUD(); spawnBlocks(); showOverlay('Shuffled', 'Play with a fresh order!');
+  });
+  function startMusicIfAllowed(){ if(!muted){ try{ bgm.play(); }catch(e){} } }
+  startBtn.addEventListener('click', ()=>{ if(!state.words.length){ state.order = shuffleArray([...state.words]); } resetGame(); hideOverlay(); startMusicIfAllowed(); requestAnimationFrame(step); });
+  resumeBtn.addEventListener('click', ()=>{ hideOverlay(); startMusicIfAllowed(); requestAnimationFrame(step); });
+  restartBtn.addEventListener('click', ()=>{ resetGame(); hideOverlay(); startMusicIfAllowed(); requestAnimationFrame(step); });
+  heroSel.addEventListener('change', ()=>{ state.hero=heroSel.value; });
+  muteBtn.addEventListener('click', toggleMute);
+
+  // Initial boot
+  state.order=[...state.words]; spawnBlocks(); showOverlay('Get Ready', 'Paste your list, then press “Use These Words” or hit Start to try the demo list.'); drawRingHUD(); setScore(0);
+  </script>
+</body>
+</html>
