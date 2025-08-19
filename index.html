@@ -100,9 +100,10 @@ neighborhood"></textarea>
   // -------- Utility: word handling --------
   function parseWords(raw){
     if(!raw) return [];
+    // Split on newlines, commas, or semicolons
     const parts = raw.split(/[
 ,;]+/).map(w=>w.trim()).filter(Boolean);
-    const filtered = parts.filter(w=>w.length>=4); // enforce scramble fairness
+    const filtered = parts.filter(w=>w.length>=4);
     return Array.from(new Set(filtered.map(w=>w.toLowerCase())));
   }
   function shuffleArray(a){ for(let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0; [a[i],a[j]]=[a[j],a[i]]} return a; }
@@ -244,7 +245,19 @@ neighborhood"></textarea>
   muteBtn.addEventListener('click', toggleMute);
 
   // Initial boot
-  state.order=[...state.words]; spawnBlocks(); showOverlay('Get Ready', 'Paste your list, then press “Use These Words” or hit Start to try the demo list.'); drawRingHUD(); setScore(0);
+  state.order=[...state.words];
+  spawnBlocks();
+  showOverlay('Get Ready', 'Paste your list, then press “Use These Words” or hit Start to try the demo list.');
+  drawRingHUD();
+  setScore(0);
+
+  // Dev-friendly error catcher to surface issues in UI instead of silently failing
+  window.addEventListener('error', (e)=>{
+    try{
+      showOverlay('Script Error', (e && e.message ? e.message : 'Unknown error') + '
+Check console for details.');
+    }catch(_){}
+  });
   </script>
 </body>
 </html>
