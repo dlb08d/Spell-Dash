@@ -1,425 +1,99 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Spell Dash — 8‑Bit Runner</title>
-  <style>
-    body{margin:0;background:#0e0e1a;color:#e8e6ff;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Arial}
-    .wrap{max-width:1100px;margin:0 auto;padding:12px;display:flex;gap:20px;align-items:flex-start}
-    .left{flex:1}
-    .right{flex:1;display:flex;flex-direction:column;align-items:center;position:relative}
-    h1{font-size:20px;margin:8px 0 6px}
-    textarea{width:100%;min-height:300px;background:#0b0b16;color:#e8e6ff;border:1px solid #2a2a44;border-radius:10px;padding:10px}
-    .controls{margin-top:8px;display:flex;gap:8px;flex-wrap:wrap}
-    select,button{appearance:none;border:1px solid #2a2a44;background:#101024;color:#e8e6ff;padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:600}
-    canvas{width:100%;max-width:420px;display:block;background:#05050b;border:1px solid #2a2a44;border-radius:12px;image-rendering:pixelated}
-    .hud{margin-top:8px}
-    #banner{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#101024;color:#f4d35e;padding:20px 30px;border:3px solid #f4d35e;border-radius:12px;font-size:20px;display:none;z-index:10;text-align:center}
-    #highscores{margin-top:8px;font-size:14px;color:#ddd}
-    #previewWrap{margin-top:10px;display:flex;gap:10px;align-items:center}
-    #preview{width:220px;height:120px;background:#05050b;border:1px solid #2a2a44;border-radius:10px;image-rendering:pixelated}
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Spell Dash</title>
+<style>
+  html,body{height:100%}
+  body{margin:0;background:#000;color:#fff;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;display:flex;flex-direction:column;align-items:center}
+  #gameContainer{position:relative;width:100%;max-width:512px;height:75vh;background:#222;overflow:hidden}
+  canvas{width:100%;height:100%;background:#1b1b1b;display:block}
+  #ui{display:flex;gap:10px;justify-content:space-between;width:100%;max-width:512px;margin:8px 0 10px;align-items:flex-start}
+  #wordList{background:#0e0e0e;padding:6px 8px;font-size:14px;max-height:20vh;overflow:auto;flex:1;border:1px solid #333}
+  #controls{display:flex;flex-direction:column;gap:6px;width:44%}
+  #controls textarea{width:100%}
+  #banner{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#151515;color:#fff;padding:18px 22px;border:2px solid #fff;display:none;z-index:5;text-align:center}
+  select,button,label{background:#111;color:#fff;border:1px solid #333;padding:8px}
+  .hidden{display:none !important}
+  @supports(padding:max(0px)){body{padding-bottom:env(safe-area-inset-bottom)}}
+  @media (max-width:600px),(orientation:portrait){#gameContainer{height:82vh}#ui{gap:10px;flex-direction:column}#controls{width:100%}#wordList{max-height:26vh}}
+</style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="left">
-      <h1>Spelling List</h1>
-      <textarea id="wordList" placeholder="example\nfantastic\nsatisfy\nvolcano\nremember\nneighborhood"></textarea>
-      <div class="controls">
-        <select id="heroSel">
-          <option value="bolt">Bolt (blue)</option>
-          <option value="skye">Skye (orange fox)</option>
-          <option value="brick">Brick (red knuckles)</option>
-          <option value="shade">Shade (black)</option>
-        </select>
-        <button id="useWords">Use These Words</button>
-        <button id="startBtn">Start ▶</button>
-      </div>
-      <div id="previewWrap">
-        <canvas id="preview" width="220" height="120"></canvas>
-        <div style="font-size:12px;opacity:.85">Character preview (idle)</div>
-      </div>
-      <div class="hud">Rings: <span id="rings">0</span></div>
-      <div id="highscores">Top Scores:<br><ol id="scoreList"></ol></div>
-    </div>
-    <div class="right">
-      <div id="banner">🎉 Congratulations! 🎉<br><span id="endTitle">All words mastered!</span><br><span id="finalStats"></span><br><span id="finalHigh"></span></div>
-      <canvas id="game" width="400" height="600"></canvas>
-    </div>
+<div id="gameContainer">
+  <canvas id="gameCanvas"></canvas>
+  <div id="banner">
+    <div id="finalTitle">Finished!</div>
+    <div id="finalStats"></div>
+    <div id="finalHigh"></div>
   </div>
-  <script>
-    function parseWords(raw){
-      if(!raw) return [];
-      const arr = raw.split(/[\n,;]+/).map(s=>s.trim()).filter(Boolean).filter(w=>w.length>=4);
-      const seen = new Set();
-      const out = [];
-      for(const w of arr){ const k=w.toLowerCase(); if(!seen.has(k)){ seen.add(k); out.push(w); } }
-      return out;
-    }
-    function makeWrong(word){
-      if(word.length<4) return null;
-      const a=word.split("");
-      const midIdx = [...Array(a.length-2).keys()].map(i=>i+1);
-      for(let t=0;t<30;t++){
-        const b=a.slice();
-        for(let i=midIdx.length-1;i>0;i--){const j=(Math.random()*(i+1))|0; const ii=midIdx[i], jj=midIdx[j]; const tmp=b[ii]; b[ii]=b[jj]; b[jj]=tmp;}
-        const s=b.join("");
-        if(s!==word) return s;
-      }
-      return null;
-    }
-
-    const canvas=document.getElementById('game');
-    const ctx=canvas.getContext('2d');
-    const prevCanvas=document.getElementById('preview');
-    const pctx=prevCanvas.getContext('2d');
-    const topY=70, bottomY=560;
-    const centerX=200;
-    const topLaneOffset=30, bottomLaneOffset=95;
-    let heroLane=0;
-    let heroSkin='bolt';
-    let words=[]; let queue=[]; let current=null;
-    let rings=0; let playing=false;
-    let speed=1.5;
-    let runTick=0; let shake=0; let flash=0; let jump=0; let hurt=0;
-    let particles=[]; let ringFX=[];
-    let highscores=[];
-    let obstacles=[]; let nextObs=180;
-    let boss=false; let bossQueue=[]; let bossSpeed=3.2; let bossClears=0; let bossGoal=6;
-
-    const heroPal={
-      bolt:{a:'#2088ff',b:'#8cc8ff',accent:'#ffffff',dark:'#0a2a66'},
-      skye:{a:'#ff8a2e',b:'#ffd0a8',accent:'#fff2cc',dark:'#b85700'},
-      brick:{a:'#e43131',b:'#ff9aa0',accent:'#ffffff',dark:'#8f1111'},
-      shade:{a:'#101015',b:'#303040',accent:'#e81b24',dark:'#000000'}
-    };
-
-    function laneXAtY(y,lane){
-      const t=Math.max(0,Math.min(1,(y-topY)/(bottomY-topY)));
-      const offTop = lane===0? -topLaneOffset : topLaneOffset;
-      const offBot = lane===0? -bottomLaneOffset : bottomLaneOffset;
-      const off = offTop + (offBot-offTop)*t;
-      return centerX+off;
-    }
-
-    function setHUD(){ document.getElementById('rings').textContent=rings; renderHighscores(); }
-
-    function speak(text){
-      try{
-        const u=new SpeechSynthesisUtterance(text);
-        u.rate=0.95; u.pitch=1.0; u.lang='en-US';
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.speak(u);
-      }catch(e){}
-    }
-
-    function pickNext(){
-      if(boss){
-        if(!bossQueue.length){ current=null; return; }
-        current={ word: bossQueue[0], y: topY-60 };
-        return;
-      }
-      if(!queue.length){ current=null; return; }
-      current={ word: queue[0], y: topY-60 };
-    }
-
-    function spawn(){
-      if(!current) return;
-      const w=current.word;
-      const wrong = makeWrong(w);
-      if(!wrong){ if(!boss){ queue.push(queue.shift()); } pickNext(); return spawn(); }
-      const left = Math.random()<0.5 ? w : wrong;
-      const right = left===w ? wrong : w;
-      current.blocks=[{lane:0,y:current.y,text:left,correct:left===w},{lane:1,y:current.y,text:right,correct:right===w}];
-      speak(w);
-    }
-
-    function canPlaceObstacle(lane,y){
-      if(current&&current.blocks){
-        for(const b of current.blocks){
-          if(b.lane===lane && Math.abs(b.y-y)<180) return false;
-        }
-      }
-      for(const o of obstacles){
-        if(o.lane===lane && Math.abs(o.y-y)<140) return false;
-      }
-      return true;
-    }
-    function spawnObstacle(){
-      const lane=Math.random()<0.5?0:1;
-      const y=topY-60;
-      if(canPlaceObstacle(lane,y)){
-        const kind=Math.random()<0.5?'barrier':'pit';
-        obstacles.push({lane,y,kind});
-      } else {
-        nextObs += 40;
-      }
-    }
-
-    function drawRoad(){
-      ctx.fillStyle="#0b0f20"; ctx.fillRect(0,0,400,600);
-      ctx.fillStyle="#1040a0";
-      ctx.beginPath();
-      ctx.moveTo(centerX-90,topY);
-      ctx.lineTo(centerX+90,topY);
-      ctx.lineTo(centerX+200,600);
-      ctx.lineTo(centerX-200,600);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle="#1d6f1d";
-      ctx.fillRect(0,bottomY,400,40);
-      ctx.strokeStyle="#fff"; ctx.lineWidth=2;
-      for(let y=topY;y<600;y+=40){
-        const t=(y-topY)/(600-topY);
-        const x1=centerX-4-4*t*2; const x2=centerX+4+4*t*2; const yy=y+(performance.now()/30%40);
-        ctx.beginPath(); ctx.moveTo(x1,yy); ctx.lineTo(x2,yy); ctx.stroke();
-      }
-    }
-
-    function drawHero(){
-      const baseY=bottomY-40-(jump>0?12:0);
-      const x=laneXAtY(bottomY,heroLane) + (shake>0? ((Math.random()*6)-3):0);
-      const phase=((runTick/6)|0)%2;
-      drawCharacterSprite(ctx, heroSkin, x, baseY-6, hurt>0?1.25:1.2, hurt>0?0:phase);
-      if(flash>0){ ctx.fillStyle='rgba(255,80,80,0.5)'; ctx.fillRect(x-22,baseY-36,44,44); }
-    }
-
-    function drawBlocks(){
-      if(!current||!current.blocks) return;
-      for(const b of current.blocks){
-        const t=Math.max(0,Math.min(1,(b.y-topY)/(bottomY-topY)));
-        const x=laneXAtY(b.y,b.lane);
-        const s=0.5 + t*0.9;
-        const w=160*s; const h=44*s;
-        ctx.fillStyle="#2b3d7a";
-        ctx.fillRect(x-w/2,b.y-h/2,w,h);
-        ctx.fillStyle="#ffffff";
-        ctx.font=(18*s|0)+"px monospace";
-        ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.fillText(b.text,x,b.y);
-      }
-    }
-
-    function drawObstacles(){
-      for(const o of obstacles){
-        const x=laneXAtY(o.y,o.lane);
-        const t=Math.max(0,Math.min(1,(o.y-topY)/(bottomY-topY)));
-        const s=0.6 + t*1.0;
-        if(o.kind==='barrier'){
-          ctx.fillStyle="#7a2b2b";
-          ctx.fillRect(x-40*s,o.y-20*s,80*s,40*s);
-        } else {
-          ctx.fillStyle="#0b0b0b";
-          ctx.beginPath(); ctx.ellipse(x,o.y,70*s,18*s,0,0,Math.PI*2); ctx.fill();
-        }
-      }
-    }
-
-    function emitParticles(x,y,color,count){
-      for(let i=0;i<count;i++){
-        particles.push({x,y,dx:(Math.random()*2-1)*2,dy:(Math.random()*-2-0.5),life:24,col:color});
-      }
-    }
-
-    function emitRingFX(x,y,count){
-      for(let i=0;i<count;i++){
-        ringFX.push({x,y,r:6+Math.random()*6,a:Math.random()*Math.PI*2,da:0.3+Math.random()*0.3,life:24});
-      }
-    }
-
-    function drawParticles(){
-      const next=[]; const nextR=[];
-      for(const p of particles){
-        ctx.fillStyle=p.col;
-        ctx.fillRect(p.x,p.y,3,3);
-        p.x+=p.dx; p.y+=p.dy; p.dy+=0.15; p.life--; if(p.life>0) next.push(p);
-      }
-      for(const r of ringFX){
-        ctx.strokeStyle='#f4d35e'; ctx.lineWidth=2;
-        ctx.beginPath();
-        ctx.arc(r.x, r.y, r.r, r.a, r.a+Math.PI*1.2);
-        ctx.stroke();
-        r.a+=r.da; r.life--; r.r+=0.2; if(r.life>0) nextR.push(r);
-      }
-      particles=next; ringFX=nextR;
-    }
-
-    function draw(){
-      ctx.clearRect(0,0,400,600);
-      drawRoad();
-      if(boss) drawBoss();
-      drawObstacles();
-      drawBlocks();
-      drawHero();
-      drawParticles();
-      ctx.globalAlpha=1;
-    }
-
-    function resolveChoice(correct){
-      if(correct){ rings++; jump=12; emitParticles(centerX, bottomY-50, '#f4d35e', 16); emitRingFX(centerX, bottomY-60, 3); if(boss){ bossClears++; bossQueue.shift(); } else { queue.shift(); } }
-      else { rings=Math.max(0,rings-1); shake=10; flash=10; hurt=18; emitParticles(centerX, bottomY-50, '#ff6666', 12); emitRingFX(centerX, bottomY-60, 6); if(!boss){ queue.push(queue.shift()); } else { bossQueue.push(bossQueue.shift()); } }
-      setHUD();
-      current=null; pickNext(); spawn();
-    }
-
-    function damageFromObstacle(){
-      rings=Math.max(0,rings-1); shake=10; flash=10; hurt=18; emitParticles(centerX, bottomY-50, '#ff6666', 12); emitRingFX(centerX, bottomY-60, 6);
-      setHUD();
-    }
-
-    function updateHighscores(){
-      highscores.push(rings);
-      highscores.sort((a,b)=>b-a);
-      highscores=highscores.slice(0,3);
-    }
-
-    function renderHighscores(){
-      const list=document.getElementById('scoreList');
-      list.innerHTML='';
-      highscores.forEach(s=>{ const li=document.createElement('li'); li.textContent=s; list.appendChild(li); });
-    }
-
-    function showBanner(){
-      playing=false;
-      const banner=document.getElementById('banner');
-      updateHighscores();
-      document.getElementById('finalStats').textContent='Rings: '+rings;
-      document.getElementById('finalHigh').textContent='High Scores: '+highscores.join(', ');
-      banner.style.display='block';
-    }
-
-    function maybeEnterBoss(){
-      if(boss) return;
-      if(queue.length===0){
-        boss=true; bossClears=0; bossQueue=[];
-        const base = words.length? words.slice() : ['example','fantastic','satisfy','volcano','remember'];
-        for(let i=0;i<bossGoal;i++){ bossQueue.push(base[i%base.length]); }
-        pickNext(); spawn();
-      }
-    }
-
-    function maybeEndBoss(){
-      if(boss && bossClears>=bossGoal){ boss=false; showBanner(); }
-    }
-
-    function step(){
-      if(!playing) return;
-      runTick++;
-      if(current&&current.blocks){ for(const b of current.blocks){ b.y+= boss? bossSpeed : speed; } }
-      for(const o of obstacles){
-        if(current&&current.blocks){
-          const near=current.blocks.some(b=>b.lane===o.lane && Math.abs(b.y-o.y)<120);
-          if(near) continue;
-        }
-        o.y += boss? bossSpeed : speed;
-      }
-      nextObs -= 1; if(nextObs<=0){ spawnObstacle(); nextObs = boss? 140+Math.random()*140 : 220+Math.random()*180; }
-      if(obstacles.length && obstacles[0].y>=bottomY-20){
-        const o=obstacles[0];
-        if(o.lane===heroLane){ damageFromObstacle(); }
-        obstacles.shift();
-      }
-      if(current&&current.blocks&&current.blocks[0].y>=bottomY-20){
-        const chosen=current.blocks.find(b=>b.lane===heroLane);
-        resolveChoice(!!(chosen&&chosen.correct));
-      }
-      if(shake>0) shake--; if(flash>0) flash--; if(jump>0) jump--; if(hurt>0) hurt--;
-      draw();
-      if(!boss) maybeEnterBoss(); else maybeEndBoss();
-      requestAnimationFrame(step);
-    }
-
-    function ensureWords(){
-      const parsed=parseWords(document.getElementById('wordList').value);
-      words = parsed.length? parsed : (words.length? words : ['example','fantastic','satisfy','volcano','remember']);
-      queue = words.slice();
-      current=null; rings=0; setHUD(); pickNext(); spawn();
-      document.getElementById('banner').style.display='none';
-      document.getElementById('endTitle').textContent='All words mastered!';
-      boss=false; bossQueue=[]; obstacles=[]; nextObs=180; bossClears=0;
-    }
-
-    document.getElementById('useWords').onclick=()=>{ ensureWords(); draw(); };
-    document.getElementById('startBtn').onclick=()=>{ ensureWords(); playing=true; step(); };
-    document.getElementById('heroSel').onchange=(e)=>{ heroSkin=e.target.value; };
-
-    let sx=0, sy=0;
-    canvas.addEventListener('touchstart',e=>{ const t=e.changedTouches[0]; sx=t.clientX; sy=t.clientY; });
-    canvas.addEventListener('touchend',e=>{ const t=e.changedTouches[0]; const dx=t.clientX-sx; const dy=Math.abs(t.clientY-sy); if(Math.abs(dx)>30&&dy<120){ heroLane=dx<0?0:1; }});
-    window.addEventListener('keydown',e=>{ if(e.key==='ArrowLeft') heroLane=0; else if(e.key==='ArrowRight') heroLane=1; });
-
-    setHUD(); draw();
-    startIdlePreview();
-
-    function drawCharacterSprite(g, skin, x, y, scale, phase){
-      const pal=heroPal[skin]||heroPal.bolt;
-      const s=scale;
-      g.save();
-      g.translate(x,y);
-      g.scale(s,s);
-      if(skin==='bolt'){
-        g.fillStyle=pal.a; g.beginPath(); g.arc(0,-20,12,0,Math.PI*2); g.fill();
-        g.fillStyle=pal.dark; for(let i=0;i<4;i++){ g.beginPath(); g.moveTo(-10+i*6,-22); g.lineTo(2+i*6,-32); g.lineTo(-2+i*6,-12); g.closePath(); g.fill(); }
-        g.fillStyle=pal.b; g.fillRect(-12,-28,24,6);
-        g.fillStyle=pal.a; g.fillRect(-16,-8,32,20);
-        g.fillStyle='#222'; if(phase===0){ g.fillRect(-12,12,12,6); g.fillRect(2,12,12,6);} else { g.fillRect(-10,8,12,6); g.fillRect(0,8,12,6);} 
-      } else if(skin==='skye'){
-        g.fillStyle=pal.a; g.beginPath(); g.arc(0,-20,12,0,Math.PI*2); g.fill();
-        g.fillStyle=pal.a; g.beginPath(); g.moveTo(-8,-30); g.lineTo(-2,-40); g.lineTo(4,-30); g.closePath(); g.fill();
-        g.beginPath(); g.moveTo(6,-30); g.lineTo(12,-40); g.lineTo(18,-30); g.closePath(); g.fill();
-        g.fillStyle=pal.b; g.beginPath(); g.ellipse(4,-18,6,4,0,0,Math.PI*2); g.fill();
-        g.fillStyle=pal.a; g.fillRect(-16,-8,32,20);
-        const tailSwing=(Math.sin(runTick/8)*6);
-        g.fillStyle=pal.a; g.beginPath(); g.moveTo(-10+tailSwing,-6); g.quadraticCurveTo(-26,6,-6,14); g.quadraticCurveTo(-8,-2,-10+tailSwing,-6); g.fill();
-        g.beginPath(); g.moveTo(10+tailSwing/2,-6); g.quadraticCurveTo(26,6,6,14); g.quadraticCurveTo(8,-2,10+tailSwing/2,-6); g.fill();
-        g.fillStyle='#222'; if(phase===0){ g.fillRect(-12,12,12,6); g.fillRect(2,12,12,6);} else { g.fillRect(-10,8,12,6); g.fillRect(0,8,12,6);} 
-      } else if(skin==='brick'){
-        g.fillStyle=pal.a; g.beginPath(); g.arc(0,-20,12,0,Math.PI*2); g.fill();
-        g.fillStyle=pal.dark; for(let i=0;i<3;i++){ g.beginPath(); g.moveTo(-8+i*6,-22); g.lineTo(2+i*6,-30); g.lineTo(-2+i*6,-12); g.closePath(); g.fill(); }
-        g.fillStyle=pal.b; g.fillRect(-10,-28,20,6);
-        g.fillStyle=pal.a; g.fillRect(-18,-8,36,20);
-        g.fillStyle=pal.dark; g.fillRect(-24,-2,12,12); g.fillRect(12,-2,12,12);
-        g.fillStyle=pal.accent; for(let dx of [-18,18]){ g.beginPath(); g.moveTo(dx,-2); g.lineTo(dx+6,6); g.lineTo(dx-6,6); g.closePath(); g.fill(); }
-        g.fillStyle='#222'; if(phase===0){ g.fillRect(-12,12,12,6); g.fillRect(2,12,12,6);} else { g.fillRect(-10,8,12,6); g.fillRect(0,8,12,6);} 
-      } else if(skin==='shade'){
-        g.fillStyle=pal.a; g.beginPath(); g.arc(0,-20,12,0,Math.PI*2); g.fill();
-        g.fillStyle=pal.dark; for(let i=0;i<3;i++){ g.beginPath(); g.moveTo(-10+i*6,-22); g.lineTo(0+i*6,-34); g.lineTo(-4+i*6,-12); g.closePath(); g.fill(); }
-        g.fillStyle=pal.accent; g.fillRect(2,-26,8,3);
-        g.fillStyle=pal.b; g.fillRect(-16,-8,32,20);
-        g.fillStyle='#111'; if(phase===0){ g.fillRect(-12,12,12,6); g.fillRect(2,12,12,6);} else { g.fillRect(-10,8,12,6); g.fillRect(0,8,12,6);} 
-      }
-      if(hurt>0){ g.rotate(0.02*(hurt%4<2?1:-1)); }
-      g.restore();
-    }
-
-    function startIdlePreview(){
-      let raf;
-      function loop(){
-        pctx.clearRect(0,0,220,120);
-        pctx.fillStyle='#0b0f20'; pctx.fillRect(0,0,220,120);
-        pctx.fillStyle='#101630'; pctx.fillRect(0,96,220,16);
-        const phase=((runTick/6)|0)%2;
-        drawCharacterSprite(pctx, heroSkin, 110, 86, 1.1, phase);
-        runTick++;
-        if(!playing) raf=requestAnimationFrame(loop); else cancelAnimationFrame(raf);
-      }
-      loop();
-    }
-
-    function drawBoss(){
-      const bx=centerX;
-      const by=topY-10;
-      ctx.save();
-      ctx.translate(bx, by);
-      ctx.fillStyle='#6c6c6c';
-      ctx.beginPath(); ctx.ellipse(0,0,46,24,0,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle='#2a2a2a'; ctx.fillRect(-36,-8,72,16);
-      ctx.fillStyle='#e33'; ctx.fillRect(-12,-6,10,6); ctx.fillRect(2,-6,10,6);
-      const arm= Math.sin(runTick/10)*6;
-      ctx.fillStyle='#888'; ctx.fillRect(28,-2+arm,18,4);
-      ctx.restore();
-    }
-  </script>
+</div>
+<div id="ui">
+  <div id="controls">
+    <textarea id="wordsInput" rows="6" cols="16" placeholder="Paste or type words here, one per line"></textarea>
+    <select id="heroSel">
+      <option value="bolt">Bolt (blue)</option>
+      <option value="skye">Skye (fox, orange)</option>
+      <option value="brick">Brick (red)</option>
+      <option value="shade">Shade (black)</option>
+    </select>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <label><input type="checkbox" id="muteSfx"> Mute Sounds</label>
+      <label><input type="checkbox" id="muteMusic"> Mute Music</label>
+    </div>
+    <button id="startBtn">Start</button>
+  </div>
+  <div id="wordList"></div>
+</div>
+<audio id="bgm" preload="auto" loop src="bit-shift-kevin-macleod-main-version-24901-03-12.mp3"></audio>
+<script>
+let canvas=document.getElementById('gameCanvas');
+let ctx=canvas.getContext('2d');
+function fit(){canvas.width=canvas.clientWidth;canvas.height=canvas.clientHeight}
+function layout(){let h=canvas.height;baseY=h*0.85;choiceY=h*0.78;spawnY=h*0.22}
+window.addEventListener('resize',()=>{fit();layout()});
+window.addEventListener('orientationchange',()=>{setTimeout(()=>{fit();layout()},150)});
+fit();
+let lanes=2;let playerLane=0;function laneXAtY(y,lane){let h=canvas.height;let w=canvas.width;let t=Math.max(0,Math.min(1,(y-h*0.15)/(h*0.85)));let center=w*0.5;let offTop = lane===0? -w*0.08 : w*0.08;let offBot = lane===0? -w*0.35 : w*0.35;let off = offTop + (offBot-offTop)*t;return center+off}
+let baseY;let choiceY;let spawnY;layout();
+let pool=[];let original=[];let active=[];let obstacles=[];let tick=0;let playing=false;let boss=false;let bossClears=0;let bossGoal=0;let bossSpeed=3.2;let rafId=null;
+let rings=0;let highscores=[];let maxRings=0;let nextPairIn=0;
+let heroSkin='bolt';
+let shake=0,flash=0,jump=0,hurt=0;let particles=[];let ringFX=[];
+function speak(t){try{if(document.getElementById('muteSfx').checked)return;let u=new SpeechSynthesisUtterance(t);u.rate=0.95;u.pitch=1;u.lang='en-US';speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}
+function jumble(w){if(w.length<4) return null;let mid=w.slice(1,-1).split('');for(let i=0;i<24;i++){let s=mid.slice().sort(()=>Math.random()-0.5).join('');if(s!==mid.join(''))return w[0]+s+w[w.length-1]}return null}
+function refreshList(){document.getElementById('wordList').innerHTML=original.map(w=>'<div>'+w+'</div>').join('')}
+let bossQueue=[];
+function spawnPair(fromBoss){let src=fromBoss?bossQueue:pool;if(src.length===0)return;let w=src.shift();let j=jumble(w);if(!j){src.push(w);return spawnPair(fromBoss)}let leftFirst=Math.random()<0.5;let left=leftFirst?w:j;let right=leftFirst?j:w;active.push({y:spawnY,speed:(boss?bossSpeed:1.5),left,right,correctLane:(right===w?1:0),word:w,resolved:false});speak(w)}
+function canPlaceObstacle(lane,y){for(const a of active){if(Math.abs(a.y-y)<220) return false}for(const o of obstacles){if(o.lane===lane && Math.abs(o.y-y)<160) return false}return true}
+function spawnObstacle(){let lane=Math.random()<0.5?0:1;let y=spawnY;if(!canPlaceObstacle(lane,y)) return;obstacles.push({lane,y,speed:1.2,kind:Math.random()<0.5?'barrier':'pit'})}
+function startBoss(){boss=true;bossClears=0;bossQueue=original.slice();bossGoal=original.length;document.getElementById('finalTitle').textContent=''}
+function startGame(){let raw=document.getElementById('wordsInput').value.split(/\n+/).map(s=>s.trim()).filter(Boolean);if(raw.length===0){alert('Please paste words to play.');return}original=[...new Set(raw.map(s=>s.toLowerCase()))];pool=original.slice();active=[];obstacles=[];rings=0;tick=0;playing=true;boss=false;bossClears=0;maxRings=original.length*2;nextPairIn=10;refreshList();document.getElementById('banner').style.display='none';document.getElementById('finalTitle').textContent='Finished!';if(rafId)cancelAnimationFrame(rafId);document.getElementById('wordList').classList.add('hidden');let bgm=document.getElementById('bgm');if(bgm&&!document.getElementById('muteMusic').checked){try{bgm.currentTime=0;bgm.play()}catch(e){}}update()}
+function ringChange(d){rings=Math.max(0,Math.min(maxRings,rings+d))}
+function resolve(o,correct){let hx=laneXAtY(baseY,playerLane);if(correct){ringChange(1);jump=12;emitParticles(hx,baseY-30,'#ffd85a',16);emitRingFX(hx,baseY-40,4);if(boss)bossClears++;}else{ringChange(-1);shake=10;flash=10;hurt=18;emitParticles(hx,baseY-30,'#ff6565',14);emitRingFX(hx,baseY-40,8);if(boss){bossQueue.push(o.word)}else{pool.push(o.word)}}o.resolved=true;nextPairIn=28}
+function update(){if(!playing)return;tick++;ctx.clearRect(0,0,canvas.width,canvas.height);drawRoad();if(!boss&&tick%240===0)spawnObstacle();if(active.length===0&&nextPairIn<=0){spawnPair(boss)}if(nextPairIn>0)nextPairIn--;for(const a of active){a.y+=a.speed;drawPair(a)}for(const ob of obstacles){ob.y+=ob.speed;drawObstacle(ob)}active=active.filter(a=>a.y<canvas.height+40 && !a.resolved);obstacles=obstacles.filter(o=>o.y<canvas.height+40);if(active[0]&&!active[0].resolved&&active[0].y>=choiceY){let a=active[0];let chosen=(playerLane===a.correctLane);resolve(a,chosen)}drawPlayer();drawHUD();checkEnd();drawParticles();rafId=requestAnimationFrame(update);if(shake>0)shake--;if(flash>0)flash--;if(jump>0)jump--;if(hurt>0)hurt--}
+function drawRoad(){let w=canvas.width;let h=canvas.height;ctx.save();if(shake>0){ctx.translate((Math.random()*6-3),(Math.random()*6-3))}ctx.fillStyle='#102040';ctx.beginPath();ctx.moveTo(w*0.35,h*0.15);ctx.lineTo(w*0.65,h*0.15);ctx.lineTo(w*0.9,h);ctx.lineTo(w*0.1,h);ctx.closePath();ctx.fill();if(boss){drawEggBoss()}ctx.strokeStyle='#fff';ctx.lineWidth=2;for(let y=h*0.18;y<h;y+=40){let t=(y-h*0.15)/(h*0.85);let x1=w*0.5-4-8*t;let x2=w*0.5+4+8*t;let yy=y+(performance.now()/30%40);ctx.beginPath();ctx.moveTo(x1,yy);ctx.lineTo(x2,yy);ctx.stroke()}ctx.restore()}
+function drawPair(o){let t=Math.max(0,Math.min(1,(o.y)/(canvas.height)));let s=0.8+t*0.7;ctx.fillStyle='#2b3d7a';let w=160*s;let h=40*s;let xL=laneXAtY(o.y,0);let xR=laneXAtY(o.y,1);ctx.fillRect(xL-w/2,o.y-h/2,w,h);ctx.fillRect(xR-w/2,o.y-h/2,w,h);ctx.fillStyle='#fff';ctx.font=(Math.max(14,16*s)|0)+'px monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(o.left,xL,o.y);ctx.fillText(o.right,xR,o.y)}
+function drawObstacle(o){let y=o.y;let x=laneXAtY(y,o.lane);let t=Math.max(0,Math.min(1,y/canvas.height));let s=0.7+t*0.8;if(o.kind==='barrier'){ctx.fillStyle='#7a2b2b';ctx.fillRect(x-36*s,y-18*s,72*s,36*s)}else{ctx.fillStyle='#0b0b0b';ctx.beginPath();ctx.ellipse(x,y,70*s,18*s,0,0,Math.PI*2);ctx.fill()}}
+const pal={bolt:{a:'#2088ff',b:'#8cc8ff',d:'#0a2a66'},skye:{a:'#ff8a2e',b:'#ffd0a8',d:'#b85700'},brick:{a:'#e43131',b:'#ff9aa0',d:'#8f1111'},shade:{a:'#101015',b:'#303040',d:'#000'}};
+function drawHero(x,y,skin,phase){const p=pal[skin]||pal.bolt;ctx.save();if(hurt>0)ctx.rotate(0.01*(hurt%4<2?1:-1));ctx.translate(x,y-(jump>0?10:0));ctx.fillStyle=p.a;ctx.beginPath();ctx.arc(0,-24,16,0,Math.PI*2);ctx.fill();ctx.fillStyle=p.d;for(let i=0;i<3;i++){ctx.beginPath();ctx.moveTo(-14+i*10,-26);ctx.lineTo(-4+i*10,-40);ctx.lineTo(-6+i*10,-12);ctx.closePath();ctx.fill()}if(skin==='skye'){ctx.fillStyle=p.a;ctx.beginPath();ctx.moveTo(-10,-30);ctx.lineTo(-4,-42);ctx.lineTo(2,-30);ctx.closePath();ctx.fill();ctx.beginPath();ctx.moveTo(6,-30);ctx.lineTo(12,-42);ctx.lineTo(18,-30);ctx.closePath();ctx.fill();let tSwing=Math.sin(tick/8)*8;ctx.beginPath();ctx.moveTo(-12+tSwing,-8);ctx.quadraticCurveTo(-34,6,-6,16);ctx.quadraticCurveTo(-10,0,-12+tSwing,-8);ctx.fill();ctx.beginPath();ctx.moveTo(12+tSwing/2,-8);ctx.quadraticCurveTo(34,6,6,16);ctx.quadraticCurveTo(10,0,12+tSwing/2,-8);ctx.fill()}ctx.fillStyle=p.b;ctx.fillRect(-20,-16,40,26);ctx.fillStyle='#222';if(phase===0){ctx.fillRect(-20,2,16,8);ctx.fillRect(4,2,16,8)}else{ctx.fillRect(-18,0,16,8);ctx.fillRect(2,0,16,8)}ctx.restore();if(flash>0){ctx.fillStyle='rgba(255,80,80,0.35)';ctx.fillRect(x-26,y-46,52,52)}}
+function drawPlayer(){let x=laneXAtY(baseY,playerLane);let y=baseY;drawHero(x,y,heroSkin,((tick/6)|0)%2)}
+function emitParticles(x,y,color,count){for(let i=0;i<count;i++){particles.push({x,y,dx:(Math.random()*2-1)*2,dy:(Math.random()*-2-0.5),life:24,col:color})}}
+function emitRingFX(x,y,count){for(let i=0;i<count;i++){ringFX.push({x,y,r:6+Math.random()*6,a:Math.random()*Math.PI*2,da:0.3+Math.random()*0.3,life:24})}}
+function drawParticles(){let next=[],nextR=[];for(const p of particles){ctx.fillStyle=p.col;ctx.fillRect(p.x,p.y,3,3);p.x+=p.dx;p.y+=p.dy;p.dy+=0.15;p.life--;if(p.life>0)next.push(p)}for(const r of ringFX){ctx.strokeStyle='#f4d35e';ctx.lineWidth=2;ctx.beginPath();ctx.arc(r.x,r.y,r.r,r.a,r.a+Math.PI*1.2);ctx.stroke();r.a+=r.da;r.life--;r.r+=0.2;if(r.life>0)nextR.push(r)}particles=next;ringFX=nextR}
+function drawHUD(){ctx.fillStyle='#ffd85a';ctx.font='18px monospace';ctx.textAlign='left';ctx.fillText('Rings: '+rings,10,22);if(boss){ctx.fillText('Boss',10,42)}}
+function checkEnd(){if(!boss&&pool.length===0&&active.length===0){startBoss();nextPairIn=8;return}if(boss&&bossClears>=bossGoal&&active.length===0){playing=false;showBanner();return}}
+function showBanner(){updateHighscores();let b=document.getElementById('banner');document.getElementById('finalStats').textContent='Rings: '+rings;document.getElementById('finalHigh').textContent='High Scores: '+highscores.join(', ');b.style.display='block';document.getElementById('wordList').classList.remove('hidden');try{document.getElementById('bgm').pause()}catch(e){}}
+function updateHighscores(){highscores.push(rings);highscores.sort((a,b)=>b-a);highscores=highscores.slice(0,3)}
+function setLane(dir){playerLane=Math.max(0,Math.min(lanes-1,playerLane+dir))}
+let touchStartX=0,touchStartY=0,touching=false;
+window.addEventListener('touchstart',e=>{if(!e.touches||!e.touches[0])return;touching=true;touchStartX=e.touches[0].clientX;touchStartY=e.touches[0].clientY});
+window.addEventListener('touchend',e=>{if(!touching)return;touching=false;let x=e.changedTouches[0].clientX;let y=e.changedTouches[0].clientY;let dx=x-touchStartX;let dy=Math.abs(y-touchStartY);if(Math.abs(dx)>30 && dy<120){if(dx<0)setLane(-1);else setLane(1)}});
+window.addEventListener('keydown',e=>{if(e.key==='ArrowLeft')setLane(-1);if(e.key==='ArrowRight')setLane(1)});
+document.getElementById('startBtn').addEventListener('click',()=>{layout();startGame()});
+document.getElementById('heroSel').addEventListener('change',e=>{heroSkin=e.target.value});
+function drawEggBoss(){let w=canvas.width;let y=canvas.height*0.12;let x=w*0.5;ctx.save();ctx.translate(x,y);ctx.fillStyle='#6c6c6c';ctx.beginPath();ctx.ellipse(0,0,46,26,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#2a2a2a';ctx.fillRect(-36,-10,72,20);ctx.fillStyle='#e33';ctx.fillRect(-12,-6,12,6);ctx.fillRect(2,-6,12,6);let arm=Math.sin(tick/10)*6;ctx.fillStyle='#888';ctx.fillRect(26,-2+arm,18,4);ctx.restore()}
+</script>
 </body>
 </html>
