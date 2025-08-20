@@ -5,259 +5,422 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
   <title>Spell Dash — 8‑Bit Runner</title>
   <style>
-    :root{
-      --bg:#0e0e1a; --ink:#e8e6ff; --accent:#78ff6b; --accent2:#46a0ff; --danger:#ff4d6d;
-      --panel:#17172a; --line:#2a2a44; --gold:#f4d35e;
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, "Apple Color Emoji","Segoe UI Emoji";}
-    .wrap{max-width:980px;margin:0 auto;padding:12px}
-    h1{font-size:clamp(20px,4vw,28px);letter-spacing:0.5px;margin:6px 0 10px}
-    .bar{display:grid;grid-template-columns:1fr;gap:10px}
-    @media (min-width:720px){.bar{grid-template-columns: 1.1fr 1fr;}}
-    .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px}
-    textarea{width:100%;min-height:88px;background:#0b0b16;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px;resize:vertical}
-    label{font-size:12px;opacity:.9}
-    .controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
-    button,.btn{appearance:none;border:1px solid var(--line);background:#101024;color:var(--ink);padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:600}
-    button:hover{border-color:#4a4a78}
-    select,input[type="text"]{background:#0b0b16;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px}
-    .hud{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px}
-    .rings{font-size:18px;letter-spacing:2px}
-    .pill{padding:6px 10px;border-radius:999px;background:#101024;border:1px solid var(--line);font-weight:700}
-    .grid{display:grid;grid-template-columns:1fr;gap:10px}
-    @media (min-width:720px){.grid{grid-template-columns:1fr 1fr}}
-    .canvasBox{position:relative;aspect-ratio: 9/16; background:linear-gradient(#14203a,#0a0a14); border:1px solid var(--line);border-radius:16px;overflow:hidden}
-    canvas{width:100%;height:100%;image-rendering: pixelated;}
-    .overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55)}
-    .overlay.show{display:flex}
-    .overlay .panel{background:#0f0f1f;border:1px solid var(--line);padding:14px;border-radius:14px;text-align:center;max-width:85%}
-    .k{font-size:12px;opacity:.8}
-    .tiny{font-size:11px;opacity:.7}
-    .foot{margin-top:8px;opacity:.8;font-size:12px}
-    .scanlines::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(to bottom, rgba(255,255,255,0.04), rgba(255,255,255,0.04) 1px, transparent 1px, transparent 3px);pointer-events:none;mix-blend-mode:overlay}
-    .tip{opacity:.8;font-size:12px;margin-top:6px}
+    body{margin:0;background:#0e0e1a;color:#e8e6ff;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Arial}
+    .wrap{max-width:1100px;margin:0 auto;padding:12px;display:flex;gap:20px;align-items:flex-start}
+    .left{flex:1}
+    .right{flex:1;display:flex;flex-direction:column;align-items:center;position:relative}
+    h1{font-size:20px;margin:8px 0 6px}
+    textarea{width:100%;min-height:300px;background:#0b0b16;color:#e8e6ff;border:1px solid #2a2a44;border-radius:10px;padding:10px}
+    .controls{margin-top:8px;display:flex;gap:8px;flex-wrap:wrap}
+    select,button{appearance:none;border:1px solid #2a2a44;background:#101024;color:#e8e6ff;padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:600}
+    canvas{width:100%;max-width:420px;display:block;background:#05050b;border:1px solid #2a2a44;border-radius:12px;image-rendering:pixelated}
+    .hud{margin-top:8px}
+    #banner{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#101024;color:#f4d35e;padding:20px 30px;border:3px solid #f4d35e;border-radius:12px;font-size:20px;display:none;z-index:10;text-align:center}
+    #highscores{margin-top:8px;font-size:14px;color:#ddd}
+    #previewWrap{margin-top:10px;display:flex;gap:10px;align-items:center}
+    #preview{width:220px;height:120px;background:#05050b;border:1px solid #2a2a44;border-radius:10px;image-rendering:pixelated}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>🕹️ Spell Dash — 8‑Bit Runner</h1>
-    <div class="bar">
-      <div class="card">
-        <label for="wordList">Paste your spelling words (comma or newline separated). <span class="tiny">(Words shorter than 4 letters are skipped for fairness.)</span></label>
-        <textarea id="wordList" placeholder="example
-fantastic
-satisfy
-volcano
-remember
-neighborhood"></textarea>
-        <div class="controls">
-          <select id="hero">
-            <option value="bolt">Bolt (blue speedster)</option>
-            <option value="skye">Skye (orange glider)</option>
-            <option value="brick">Brick (red bruiser)</option>
-            <option value="shade">Shade (violet ninja)</option>
-          </select>
-          <button id="useWords">Use These Words</button>
-          <button id="shuffleWords" title="Shuffle the play order">Shuffle</button>
-          <button id="startBtn" class="btn" style="border-color:#3a3a7a">Start ▶</button>
-          <button id="muteBtn" title="Mute/unmute music and sounds">Mute 🔊</button>
-          <span class="tip">Swipe ◀ / ▶ (or use ◀ ▶ keys) to choose the correct spelling.</span>
-        </div>
-        <div class="hud">
-          <div><span class="pill">Score: <span id="score">0</span></span></div>
-          <div class="pill">Lives: <span id="lives" class="rings">⚪⚪⚪</span></div>
-        </div>
+    <div class="left">
+      <h1>Spelling List</h1>
+      <textarea id="wordList" placeholder="example\nfantastic\nsatisfy\nvolcano\nremember\nneighborhood"></textarea>
+      <div class="controls">
+        <select id="heroSel">
+          <option value="bolt">Bolt (blue)</option>
+          <option value="skye">Skye (orange fox)</option>
+          <option value="brick">Brick (red knuckles)</option>
+          <option value="shade">Shade (black)</option>
+        </select>
+        <button id="useWords">Use These Words</button>
+        <button id="startBtn">Start ▶</button>
       </div>
-      <div class="card">
-        <div class="canvasBox scanlines" id="canvasBox">
-          <canvas id="game" width="432" height="768"></canvas>
-          <div class="overlay" id="overlay">
-            <div class="panel">
-              <h3 id="ovTitle">Get Ready</h3>
-              <p id="ovMsg" class="k">Swipe left or right to pick the correct spelling. 3 lives. Good luck!</p>
-              <div style="margin-top:8px">
-                <button id="resumeBtn">Play</button>
-                <button id="restartBtn">Restart</button>
-              </div>
-              <p class="tiny" style="margin-top:8px">Tip: On desktop, use ◀ ▶ keys.</p>
-            </div>
-          </div>
-        </div>
-        <div class="foot">Note: Characters are original 8‑bit heroes inspired by classic platformers. No third‑party IP used.</div>
+      <div id="previewWrap">
+        <canvas id="preview" width="220" height="120"></canvas>
+        <div style="font-size:12px;opacity:.85">Character preview (idle)</div>
       </div>
+      <div class="hud">Rings: <span id="rings">0</span></div>
+      <div id="highscores">Top Scores:<br><ol id="scoreList"></ol></div>
+    </div>
+    <div class="right">
+      <div id="banner">🎉 Congratulations! 🎉<br><span id="endTitle">All words mastered!</span><br><span id="finalStats"></span><br><span id="finalHigh"></span></div>
+      <canvas id="game" width="400" height="600"></canvas>
     </div>
   </div>
-
-  <!-- Audio Assets -->
-  <!-- Put the following MP3 in the SAME folder as index.html when committing to GitHub -->
-  <audio id="bgm" src="bit-shift-kevin-macleod-main-version-24901-03-12.mp3" preload="auto" loop playsinline></audio>
-  <audio id="sfx-correct" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg" preload="auto"></audio>
-  <audio id="sfx-wrong" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg" preload="auto"></audio>
-  <audio id="sfx-gameover" src="https://actions.google.com/sounds/v1/cartoon/descending_whistle.ogg" preload="auto"></audio>
-
   <script>
-  // -------- Utility: word handling --------
-  function parseWords(raw){
-    if(!raw) return [];
-    // Split on newlines, commas, or semicolons
-    const parts = raw.split(/[
-,;]+/).map(w=>w.trim()).filter(Boolean);
-    const filtered = parts.filter(w=>w.length>=4);
-    return Array.from(new Set(filtered.map(w=>w.toLowerCase())));
-  }
-  function shuffleArray(a){ for(let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0; [a[i],a[j]]=[a[j],a[i]]} return a; }
-  function scrambleMiddle(word){
-    if(word.length<4) return word;
-    const first = word[0], last = word[word.length-1];
-    const midArr = word.slice(1,-1).split("");
-    let attempt = word, tries=0;
-    while(tries<10){
-      const arr=[...midArr];
-      for(let i=arr.length-1;i>0;i--){const j=(Math.random()*(i+1))|0; [arr[i],arr[j]]=[arr[j],arr[i]]}
-      attempt = first + arr.join("") + last;
-      if(attempt !== word) return attempt; tries++;
+    function parseWords(raw){
+      if(!raw) return [];
+      const arr = raw.split(/[\n,;]+/).map(s=>s.trim()).filter(Boolean).filter(w=>w.length>=4);
+      const seen = new Set();
+      const out = [];
+      for(const w of arr){ const k=w.toLowerCase(); if(!seen.has(k)){ seen.add(k); out.push(w); } }
+      return out;
     }
-    if(midArr.length>=2){ [midArr[0], midArr[1]] = [midArr[1], midArr[0]]; const fb = first + midArr.join("") + last; if(fb !== word) return fb; }
-    if(midArr.length>=3){ [midArr[midArr.length-2], midArr[midArr.length-3]] = [midArr[midArr.length-3], midArr[midArr.length-2]]; const fb2 = first + midArr.join("") + last; if(fb2 !== word) return fb2; }
-    return word;
-  }
-
-  // -------- Game State --------
-  const state = {
-    words: ["example","fantastic","satisfy","volcano","remember","neighborhood","usually","faithful"],
-    order: [], idx: 0, score: 0, lives: 3, playing: false, paused: true,
-    hero: 'bolt', lane: 1, blocks: [], speed: 3.2, spawnCooldown: 0, hitFreeze: 0
-  };
-
-  // -------- Canvas Setup --------
-  const canvas = document.getElementById('game');
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
-  const lanesX = [W*0.25, W*0.75];
-  const groundY = H-80;
-
-  const heroPal = {
-    bolt: {body:"#46a0ff", trim:"#e8e6ff"},
-    skye: {body:"#ff9e46", trim:"#fff0e8"},
-    brick:{body:"#ff5b5b", trim:"#ffe2e2"},
-    shade:{body:"#a46bff", trim:"#efe6ff"},
-  };
-  function drawHero(x,y,skin){
-    const p = heroPal[skin]||heroPal.bolt; const s=4;
-    function b(px,py,w,h,col){ctx.fillStyle=col;ctx.fillRect(x+px*s,y+py*s,w*s,h*s)}
-    b(-6,-10,12,12,p.body); b(-4,-8,8,2,p.trim); b(-5,2,3,2,"#222"); b(2,2,3,2,"#222");
-  }
-  function drawRingHUD(){ const ui=document.getElementById('lives'); ui.textContent=''; for(let i=0;i<state.lives;i++) ui.textContent+='⚪'; }
-  function setScore(n){ document.getElementById('score').textContent=n; }
-
-  function spawnBlocks(){
-    if(state.idx>=state.order.length) return;
-    const word = state.order[state.idx];
-    const wrong = scrambleMiddle(word);
-    let leftText, rightText;
-    if(Math.random()<0.5){ leftText=word; rightText=wrong; }
-    else{ leftText=wrong; rightText=word; }
-    const blockY=-30;
-    state.blocks=[
-      {lane:0,y:blockY,text:leftText,correct:leftText===word},
-      {lane:1,y:blockY,text:rightText,correct:rightText===word},
-    ];
-  }
-  function drawTrack(){
-    ctx.fillStyle = ctx.createLinearGradient(0,0,0,H);
-    ctx.fillStyle.addColorStop?.(0,'#0d1530'); ctx.fillStyle.addColorStop?.(1,'#05050b'); ctx.fillRect(0,0,W,H);
-    ctx.strokeStyle='#1f2a4a'; ctx.lineWidth=2;
-    for(let i=0;i<16;i++){ ctx.beginPath(); ctx.moveTo(W*0.5, i*52 + (performance.now()/8 % 52)); ctx.lineTo(W*0.5, i*52 + 26 + (performance.now()/8 % 52)); ctx.stroke(); }
-    ctx.fillStyle='#0a0a12'; ctx.fillRect(0,groundY, W, 100);
-  }
-  function drawWordBlock(b){
-    const x = lanesX[b.lane], y=b.y; ctx.fillStyle=b.correct?'#1f6f1f':'#6f1f1f';
-    ctx.fillRect(x-110,y-28,220,52); ctx.strokeStyle='#ffffff22'; ctx.strokeRect(x-110,y-28,220,52);
-    ctx.fillStyle='#ffffff'; ctx.font='bold 28px monospace'; ctx.textAlign='center'; ctx.fillText(b.text,x,y+8);
-  }
-  function showOverlay(title,msg){ const ov=document.getElementById('overlay'); document.getElementById('ovTitle').textContent=title; document.getElementById('ovMsg').textContent=msg; ov.classList.add('show'); state.paused=true; state.playing=false; }
-  function hideOverlay(){ document.getElementById('overlay').classList.remove('show'); state.paused=false; state.playing=true; }
-  function resetGame(){ state.idx=0; state.score=0; state.lives=3; state.blocks=[]; state.lane=1; setScore(0); drawRingHUD(); spawnBlocks(); }
-
-  // -------- Input: swipe & keys --------
-  let touchStartX=null, touchStartY=null; const swipeThresh=30; const box=document.getElementById('canvasBox');
-  box.addEventListener('touchstart', e=>{ const t=e.changedTouches[0]; touchStartX=t.clientX; touchStartY=t.clientY;});
-  box.addEventListener('touchend', e=>{ const t=e.changedTouches[0]; const dx=t.clientX - touchStartX; const dy = Math.abs(t.clientY - touchStartY); if(Math.abs(dx)>swipeThresh && dy<120){ if(dx<0) state.lane=0; else state.lane=1; }});
-  window.addEventListener('keydown', e=>{ if(e.key==='ArrowLeft') state.lane=0; else if(e.key==='ArrowRight') state.lane=1; });
-
-  // -------- Audio --------
-  const bgm=document.getElementById('bgm');
-  const sfxCorrect=document.getElementById('sfx-correct');
-  const sfxWrong=document.getElementById('sfx-wrong');
-  const sfxGameover=document.getElementById('sfx-gameover');
-  let muted=false;
-  bgm.volume=0.35; // gentle background level
-  function playSfx(s){ if(!muted){ try{ s.currentTime=0; s.play(); }catch(e){} } }
-  function toggleMute(){
-    muted=!muted; const btn=document.getElementById('muteBtn');
-    if(muted){ bgm.pause(); btn.textContent='Unmute 🔇'; }
-    else { try{ bgm.play(); }catch(e){} btn.textContent='Mute 🔊'; }
-  }
-
-  // -------- Main Loop --------
-  function step(){
-    ctx.clearRect(0,0,W,H); drawTrack();
-    for(const b of state.blocks){ b.y += state.speed; drawWordBlock(b); }
-    const px = lanesX[state.lane]; const py = groundY - 16 + (state.hitFreeze>0 ? ((Math.random()*6)-3) : 0); drawHero(px,py,state.hero);
-    if(state.blocks.length && state.blocks[0].y >= groundY-20){
-      const chosen = state.blocks.find(b=>b.lane===state.lane); const correct = chosen && chosen.correct;
-      if(correct){ state.score++; setScore(state.score); playSfx(sfxCorrect); }
-      else { state.lives--; drawRingHUD(); state.hitFreeze=12; playSfx(sfxWrong); }
-      state.idx++; state.blocks=[];
-      if(state.lives<=0){ playSfx(sfxGameover); showOverlay('Game Over', `Final score: ${state.score}. Tap Restart to try again.`); }
-      else if(state.idx>=state.order.length){ showOverlay('All Done!', `You finished ${state.order.length} words with a score of ${state.score}.`); }
-      else { spawnBlocks(); }
+    function makeWrong(word){
+      if(word.length<4) return null;
+      const a=word.split("");
+      const midIdx = [...Array(a.length-2).keys()].map(i=>i+1);
+      for(let t=0;t<30;t++){
+        const b=a.slice();
+        for(let i=midIdx.length-1;i>0;i--){const j=(Math.random()*(i+1))|0; const ii=midIdx[i], jj=midIdx[j]; const tmp=b[ii]; b[ii]=b[jj]; b[jj]=tmp;}
+        const s=b.join("");
+        if(s!==word) return s;
+      }
+      return null;
     }
-    if(state.hitFreeze>0) state.hitFreeze--; if(!state.paused) requestAnimationFrame(step);
-  }
 
-  // -------- UI Wiring --------
-  const wordListEl=document.getElementById('wordList');
-  const useBtn=document.getElementById('useWords');
-  const shuffleBtn=document.getElementById('shuffleWords');
-  const startBtn=document.getElementById('startBtn');
-  const resumeBtn=document.getElementById('resumeBtn');
-  const restartBtn=document.getElementById('restartBtn');
-  const heroSel=document.getElementById('hero');
-  const muteBtn=document.getElementById('muteBtn');
+    const canvas=document.getElementById('game');
+    const ctx=canvas.getContext('2d');
+    const prevCanvas=document.getElementById('preview');
+    const pctx=prevCanvas.getContext('2d');
+    const topY=70, bottomY=560;
+    const centerX=200;
+    const topLaneOffset=30, bottomLaneOffset=95;
+    let heroLane=0;
+    let heroSkin='bolt';
+    let words=[]; let queue=[]; let current=null;
+    let rings=0; let playing=false;
+    let speed=1.5;
+    let runTick=0; let shake=0; let flash=0; let jump=0; let hurt=0;
+    let particles=[]; let ringFX=[];
+    let highscores=[];
+    let obstacles=[]; let nextObs=180;
+    let boss=false; let bossQueue=[]; let bossSpeed=3.2; let bossClears=0; let bossGoal=6;
 
-  useBtn.addEventListener('click', ()=>{
-    const parsed = parseWords(wordListEl.value);
-    if(parsed.length===0){ alert('Please paste words that are at least 4 letters long.'); return; }
-    state.words = parsed; state.order=[...state.words]; state.idx=0; setScore(0); state.lives=3; drawRingHUD(); spawnBlocks();
-    showOverlay('Loaded!', `Using ${state.order.length} words. Tap Play to start.`);
-  });
-  shuffleBtn.addEventListener('click', ()=>{
-    if(!state.words.length){ alert('Load words first.'); return; }
-    state.order = shuffleArray([...state.words]); state.idx=0; setScore(0); state.lives=3; drawRingHUD(); spawnBlocks(); showOverlay('Shuffled', 'Play with a fresh order!');
-  });
-  function startMusicIfAllowed(){ if(!muted){ try{ bgm.play(); }catch(e){} } }
-  startBtn.addEventListener('click', ()=>{ if(!state.words.length){ state.order = shuffleArray([...state.words]); } resetGame(); hideOverlay(); startMusicIfAllowed(); requestAnimationFrame(step); });
-  resumeBtn.addEventListener('click', ()=>{ hideOverlay(); startMusicIfAllowed(); requestAnimationFrame(step); });
-  restartBtn.addEventListener('click', ()=>{ resetGame(); hideOverlay(); startMusicIfAllowed(); requestAnimationFrame(step); });
-  heroSel.addEventListener('change', ()=>{ state.hero=heroSel.value; });
-  muteBtn.addEventListener('click', toggleMute);
+    const heroPal={
+      bolt:{a:'#2088ff',b:'#8cc8ff',accent:'#ffffff',dark:'#0a2a66'},
+      skye:{a:'#ff8a2e',b:'#ffd0a8',accent:'#fff2cc',dark:'#b85700'},
+      brick:{a:'#e43131',b:'#ff9aa0',accent:'#ffffff',dark:'#8f1111'},
+      shade:{a:'#101015',b:'#303040',accent:'#e81b24',dark:'#000000'}
+    };
 
-  // Initial boot
-  state.order=[...state.words];
-  spawnBlocks();
-  showOverlay('Get Ready', 'Paste your list, then press “Use These Words” or hit Start to try the demo list.');
-  drawRingHUD();
-  setScore(0);
+    function laneXAtY(y,lane){
+      const t=Math.max(0,Math.min(1,(y-topY)/(bottomY-topY)));
+      const offTop = lane===0? -topLaneOffset : topLaneOffset;
+      const offBot = lane===0? -bottomLaneOffset : bottomLaneOffset;
+      const off = offTop + (offBot-offTop)*t;
+      return centerX+off;
+    }
 
-  // Dev-friendly error catcher to surface issues in UI instead of silently failing
-  window.addEventListener('error', (e)=>{
-    try{
-      showOverlay('Script Error', (e && e.message ? e.message : 'Unknown error') + '
-Check console for details.');
-    }catch(_){}
-  });
+    function setHUD(){ document.getElementById('rings').textContent=rings; renderHighscores(); }
+
+    function speak(text){
+      try{
+        const u=new SpeechSynthesisUtterance(text);
+        u.rate=0.95; u.pitch=1.0; u.lang='en-US';
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(u);
+      }catch(e){}
+    }
+
+    function pickNext(){
+      if(boss){
+        if(!bossQueue.length){ current=null; return; }
+        current={ word: bossQueue[0], y: topY-60 };
+        return;
+      }
+      if(!queue.length){ current=null; return; }
+      current={ word: queue[0], y: topY-60 };
+    }
+
+    function spawn(){
+      if(!current) return;
+      const w=current.word;
+      const wrong = makeWrong(w);
+      if(!wrong){ if(!boss){ queue.push(queue.shift()); } pickNext(); return spawn(); }
+      const left = Math.random()<0.5 ? w : wrong;
+      const right = left===w ? wrong : w;
+      current.blocks=[{lane:0,y:current.y,text:left,correct:left===w},{lane:1,y:current.y,text:right,correct:right===w}];
+      speak(w);
+    }
+
+    function canPlaceObstacle(lane,y){
+      if(current&&current.blocks){
+        for(const b of current.blocks){
+          if(b.lane===lane && Math.abs(b.y-y)<180) return false;
+        }
+      }
+      for(const o of obstacles){
+        if(o.lane===lane && Math.abs(o.y-y)<140) return false;
+      }
+      return true;
+    }
+    function spawnObstacle(){
+      const lane=Math.random()<0.5?0:1;
+      const y=topY-60;
+      if(canPlaceObstacle(lane,y)){
+        const kind=Math.random()<0.5?'barrier':'pit';
+        obstacles.push({lane,y,kind});
+      } else {
+        nextObs += 40;
+      }
+    }
+
+    function drawRoad(){
+      ctx.fillStyle="#0b0f20"; ctx.fillRect(0,0,400,600);
+      ctx.fillStyle="#1040a0";
+      ctx.beginPath();
+      ctx.moveTo(centerX-90,topY);
+      ctx.lineTo(centerX+90,topY);
+      ctx.lineTo(centerX+200,600);
+      ctx.lineTo(centerX-200,600);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle="#1d6f1d";
+      ctx.fillRect(0,bottomY,400,40);
+      ctx.strokeStyle="#fff"; ctx.lineWidth=2;
+      for(let y=topY;y<600;y+=40){
+        const t=(y-topY)/(600-topY);
+        const x1=centerX-4-4*t*2; const x2=centerX+4+4*t*2; const yy=y+(performance.now()/30%40);
+        ctx.beginPath(); ctx.moveTo(x1,yy); ctx.lineTo(x2,yy); ctx.stroke();
+      }
+    }
+
+    function drawHero(){
+      const baseY=bottomY-40-(jump>0?12:0);
+      const x=laneXAtY(bottomY,heroLane) + (shake>0? ((Math.random()*6)-3):0);
+      const phase=((runTick/6)|0)%2;
+      drawCharacterSprite(ctx, heroSkin, x, baseY-6, hurt>0?1.25:1.2, hurt>0?0:phase);
+      if(flash>0){ ctx.fillStyle='rgba(255,80,80,0.5)'; ctx.fillRect(x-22,baseY-36,44,44); }
+    }
+
+    function drawBlocks(){
+      if(!current||!current.blocks) return;
+      for(const b of current.blocks){
+        const t=Math.max(0,Math.min(1,(b.y-topY)/(bottomY-topY)));
+        const x=laneXAtY(b.y,b.lane);
+        const s=0.5 + t*0.9;
+        const w=160*s; const h=44*s;
+        ctx.fillStyle="#2b3d7a";
+        ctx.fillRect(x-w/2,b.y-h/2,w,h);
+        ctx.fillStyle="#ffffff";
+        ctx.font=(18*s|0)+"px monospace";
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(b.text,x,b.y);
+      }
+    }
+
+    function drawObstacles(){
+      for(const o of obstacles){
+        const x=laneXAtY(o.y,o.lane);
+        const t=Math.max(0,Math.min(1,(o.y-topY)/(bottomY-topY)));
+        const s=0.6 + t*1.0;
+        if(o.kind==='barrier'){
+          ctx.fillStyle="#7a2b2b";
+          ctx.fillRect(x-40*s,o.y-20*s,80*s,40*s);
+        } else {
+          ctx.fillStyle="#0b0b0b";
+          ctx.beginPath(); ctx.ellipse(x,o.y,70*s,18*s,0,0,Math.PI*2); ctx.fill();
+        }
+      }
+    }
+
+    function emitParticles(x,y,color,count){
+      for(let i=0;i<count;i++){
+        particles.push({x,y,dx:(Math.random()*2-1)*2,dy:(Math.random()*-2-0.5),life:24,col:color});
+      }
+    }
+
+    function emitRingFX(x,y,count){
+      for(let i=0;i<count;i++){
+        ringFX.push({x,y,r:6+Math.random()*6,a:Math.random()*Math.PI*2,da:0.3+Math.random()*0.3,life:24});
+      }
+    }
+
+    function drawParticles(){
+      const next=[]; const nextR=[];
+      for(const p of particles){
+        ctx.fillStyle=p.col;
+        ctx.fillRect(p.x,p.y,3,3);
+        p.x+=p.dx; p.y+=p.dy; p.dy+=0.15; p.life--; if(p.life>0) next.push(p);
+      }
+      for(const r of ringFX){
+        ctx.strokeStyle='#f4d35e'; ctx.lineWidth=2;
+        ctx.beginPath();
+        ctx.arc(r.x, r.y, r.r, r.a, r.a+Math.PI*1.2);
+        ctx.stroke();
+        r.a+=r.da; r.life--; r.r+=0.2; if(r.life>0) nextR.push(r);
+      }
+      particles=next; ringFX=nextR;
+    }
+
+    function draw(){
+      ctx.clearRect(0,0,400,600);
+      drawRoad();
+      if(boss) drawBoss();
+      drawObstacles();
+      drawBlocks();
+      drawHero();
+      drawParticles();
+      ctx.globalAlpha=1;
+    }
+
+    function resolveChoice(correct){
+      if(correct){ rings++; jump=12; emitParticles(centerX, bottomY-50, '#f4d35e', 16); emitRingFX(centerX, bottomY-60, 3); if(boss){ bossClears++; bossQueue.shift(); } else { queue.shift(); } }
+      else { rings=Math.max(0,rings-1); shake=10; flash=10; hurt=18; emitParticles(centerX, bottomY-50, '#ff6666', 12); emitRingFX(centerX, bottomY-60, 6); if(!boss){ queue.push(queue.shift()); } else { bossQueue.push(bossQueue.shift()); } }
+      setHUD();
+      current=null; pickNext(); spawn();
+    }
+
+    function damageFromObstacle(){
+      rings=Math.max(0,rings-1); shake=10; flash=10; hurt=18; emitParticles(centerX, bottomY-50, '#ff6666', 12); emitRingFX(centerX, bottomY-60, 6);
+      setHUD();
+    }
+
+    function updateHighscores(){
+      highscores.push(rings);
+      highscores.sort((a,b)=>b-a);
+      highscores=highscores.slice(0,3);
+    }
+
+    function renderHighscores(){
+      const list=document.getElementById('scoreList');
+      list.innerHTML='';
+      highscores.forEach(s=>{ const li=document.createElement('li'); li.textContent=s; list.appendChild(li); });
+    }
+
+    function showBanner(){
+      playing=false;
+      const banner=document.getElementById('banner');
+      updateHighscores();
+      document.getElementById('finalStats').textContent='Rings: '+rings;
+      document.getElementById('finalHigh').textContent='High Scores: '+highscores.join(', ');
+      banner.style.display='block';
+    }
+
+    function maybeEnterBoss(){
+      if(boss) return;
+      if(queue.length===0){
+        boss=true; bossClears=0; bossQueue=[];
+        const base = words.length? words.slice() : ['example','fantastic','satisfy','volcano','remember'];
+        for(let i=0;i<bossGoal;i++){ bossQueue.push(base[i%base.length]); }
+        pickNext(); spawn();
+      }
+    }
+
+    function maybeEndBoss(){
+      if(boss && bossClears>=bossGoal){ boss=false; showBanner(); }
+    }
+    }
+
+    function step(){
+      if(!playing) return;
+      runTick++;
+      if(current&&current.blocks){ for(const b of current.blocks){ b.y+= boss? bossSpeed : speed; } }
+      for(const o of obstacles){
+        if(current&&current.blocks){
+          const near=current.blocks.some(b=>b.lane===o.lane && Math.abs(b.y-o.y)<120);
+          if(near) continue;
+        }
+        o.y += boss? bossSpeed : speed;
+      }
+      nextObs -= 1; if(nextObs<=0){ spawnObstacle(); nextObs = boss? 140+Math.random()*140 : 220+Math.random()*180; }
+      if(obstacles.length && obstacles[0].y>=bottomY-20){
+        const o=obstacles[0];
+        if(o.lane===heroLane){ damageFromObstacle(); }
+        obstacles.shift();
+      }
+      if(current&&current.blocks&&current.blocks[0].y>=bottomY-20){
+        const chosen=current.blocks.find(b=>b.lane===heroLane);
+        resolveChoice(!!(chosen&&chosen.correct));
+      }
+      if(shake>0) shake--; if(flash>0) flash--; if(jump>0) jump--; if(hurt>0) hurt--;
+      draw();
+      if(!boss) maybeEnterBoss(); else maybeEndBoss();
+      requestAnimationFrame(step);
+    }
+
+    function ensureWords(){
+      const parsed=parseWords(document.getElementById('wordList').value);
+      words = parsed.length? parsed : (words.length? words : ['example','fantastic','satisfy','volcano','remember']);
+      queue = words.slice();
+      current=null; rings=0; setHUD(); pickNext(); spawn();
+      document.getElementById('banner').style.display='none';
+      document.getElementById('endTitle').textContent='All words mastered!';
+      boss=false; bossQueue=[]; obstacles=[]; nextObs=180; bossClears=0;
+    }
+
+    document.getElementById('useWords').onclick=()=>{ ensureWords(); draw(); };
+    document.getElementById('startBtn').onclick=()=>{ ensureWords(); playing=true; step(); };
+    document.getElementById('heroSel').onchange=(e)=>{ heroSkin=e.target.value; };
+
+    let sx=0, sy=0;
+    canvas.addEventListener('touchstart',e=>{ const t=e.changedTouches[0]; sx=t.clientX; sy=t.clientY; });
+    canvas.addEventListener('touchend',e=>{ const t=e.changedTouches[0]; const dx=t.clientX-sx; const dy=Math.abs(t.clientY-sy); if(Math.abs(dx)>30&&dy<120){ heroLane=dx<0?0:1; }});
+    window.addEventListener('keydown',e=>{ if(e.key==='ArrowLeft') heroLane=0; else if(e.key==='ArrowRight') heroLane=1; });
+
+    setHUD(); draw();
+    startIdlePreview();
+
+    function drawCharacterSprite(g, skin, x, y, scale, phase){
+      const pal=heroPal[skin]||heroPal.bolt;
+      const s=scale;
+      g.save();
+      g.translate(x,y);
+      g.scale(s,s);
+      if(skin==='bolt'){
+        g.fillStyle=pal.a; g.beginPath(); g.arc(0,-20,12,0,Math.PI*2); g.fill();
+        g.fillStyle=pal.dark; for(let i=0;i<4;i++){ g.beginPath(); g.moveTo(-10+i*6,-22); g.lineTo(2+i*6,-32); g.lineTo(-2+i*6,-12); g.closePath(); g.fill(); }
+        g.fillStyle=pal.b; g.fillRect(-12,-28,24,6);
+        g.fillStyle=pal.a; g.fillRect(-16,-8,32,20);
+        g.fillStyle='#222'; if(phase===0){ g.fillRect(-12,12,12,6); g.fillRect(2,12,12,6);} else { g.fillRect(-10,8,12,6); g.fillRect(0,8,12,6);} 
+      } else if(skin==='skye'){
+        g.fillStyle=pal.a; g.beginPath(); g.arc(0,-20,12,0,Math.PI*2); g.fill();
+        g.fillStyle=pal.a; g.beginPath(); g.moveTo(-8,-30); g.lineTo(-2,-40); g.lineTo(4,-30); g.closePath(); g.fill();
+        g.beginPath(); g.moveTo(6,-30); g.lineTo(12,-40); g.lineTo(18,-30); g.closePath(); g.fill();
+        g.fillStyle=pal.b; g.beginPath(); g.ellipse(4,-18,6,4,0,0,Math.PI*2); g.fill();
+        g.fillStyle=pal.a; g.fillRect(-16,-8,32,20);
+        const tailSwing=(Math.sin(runTick/8)*6);
+        g.fillStyle=pal.a; g.beginPath(); g.moveTo(-10+tailSwing,-6); g.quadraticCurveTo(-26,6,-6,14); g.quadraticCurveTo(-8,-2,-10+tailSwing,-6); g.fill();
+        g.beginPath(); g.moveTo(10+tailSwing/2,-6); g.quadraticCurveTo(26,6,6,14); g.quadraticCurveTo(8,-2,10+tailSwing/2,-6); g.fill();
+        g.fillStyle='#222'; if(phase===0){ g.fillRect(-12,12,12,6); g.fillRect(2,12,12,6);} else { g.fillRect(-10,8,12,6); g.fillRect(0,8,12,6);} 
+      } else if(skin==='brick'){
+        g.fillStyle=pal.a; g.beginPath(); g.arc(0,-20,12,0,Math.PI*2); g.fill();
+        g.fillStyle=pal.dark; for(let i=0;i<3;i++){ g.beginPath(); g.moveTo(-8+i*6,-22); g.lineTo(2+i*6,-30); g.lineTo(-2+i*6,-12); g.closePath(); g.fill(); }
+        g.fillStyle=pal.b; g.fillRect(-10,-28,20,6);
+        g.fillStyle=pal.a; g.fillRect(-18,-8,36,20);
+        g.fillStyle=pal.dark; g.fillRect(-24,-2,12,12); g.fillRect(12,-2,12,12);
+        g.fillStyle=pal.accent; for(let dx of [-18,18]){ g.beginPath(); g.moveTo(dx,-2); g.lineTo(dx+6,6); g.lineTo(dx-6,6); g.closePath(); g.fill(); }
+        g.fillStyle='#222'; if(phase===0){ g.fillRect(-12,12,12,6); g.fillRect(2,12,12,6);} else { g.fillRect(-10,8,12,6); g.fillRect(0,8,12,6);} 
+      } else if(skin==='shade'){
+        g.fillStyle=pal.a; g.beginPath(); g.arc(0,-20,12,0,Math.PI*2); g.fill();
+        g.fillStyle=pal.dark; for(let i=0;i<3;i++){ g.beginPath(); g.moveTo(-10+i*6,-22); g.lineTo(0+i*6,-34); g.lineTo(-4+i*6,-12); g.closePath(); g.fill(); }
+        g.fillStyle=pal.accent; g.fillRect(2,-26,8,3);
+        g.fillStyle=pal.b; g.fillRect(-16,-8,32,20);
+        g.fillStyle='#111'; if(phase===0){ g.fillRect(-12,12,12,6); g.fillRect(2,12,12,6);} else { g.fillRect(-10,8,12,6); g.fillRect(0,8,12,6);} 
+      }
+      if(hurt>0){ g.rotate(0.02*(hurt%4<2?1:-1)); }
+      g.restore();
+    }
+
+    function startIdlePreview(){
+      let raf;
+      function loop(){
+        pctx.clearRect(0,0,220,120);
+        pctx.fillStyle='#0b0f20'; pctx.fillRect(0,0,220,120);
+        pctx.fillStyle='#101630'; pctx.fillRect(0,96,220,16);
+        const phase=((runTick/6)|0)%2;
+        drawCharacterSprite(pctx, heroSkin, 110, 86, 1.1, phase);
+        runTick++;
+        if(!playing) raf=requestAnimationFrame(loop); else cancelAnimationFrame(raf);
+      }
+      loop();
+    }
+
+    function drawBoss(){
+      const bx=centerX;
+      const by=topY-10;
+      ctx.save();
+      ctx.translate(bx, by);
+      ctx.fillStyle='#6c6c6c';
+      ctx.beginPath(); ctx.ellipse(0,0,46,24,0,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#2a2a2a'; ctx.fillRect(-36,-8,72,16);
+      ctx.fillStyle='#e33'; ctx.fillRect(-12,-6,10,6); ctx.fillRect(2,-6,10,6);
+      const arm= Math.sin(runTick/10)*6;
+      ctx.fillStyle='#888'; ctx.fillRect(28,-2+arm,18,4);
+      ctx.restore();
+    }
   </script>
 </body>
 </html>
