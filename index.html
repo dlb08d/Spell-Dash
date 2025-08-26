@@ -7,7 +7,8 @@
 <style>
   html,body{height:100%}
   body{margin:0;background:#000;color:#fff;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;display:flex;flex-direction:column;align-items:center;overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
-  html,body,#gameContainer,canvas{overscroll-behavior:none;touch-action:none}
+  html,body{overscroll-behavior:none}
+  #gameContainer,canvas{touch-action:none}
   #gameContainer{position:relative;width:100%;max-width:512px;height:75vh;background:#222;overflow:hidden}
   canvas{width:100%;height:100%;background:#1b1b1b;display:block}
   #ui{display:flex;gap:10px;justify-content:space-between;width:100%;max-width:512px;margin:8px 0 10px;align-items:flex-start}
@@ -67,7 +68,7 @@ function ensureAudio(){try{if(!ac){ac=new (window.AudioContext||window.webkitAud
 function playTone(f,d,t,vol){if(document.getElementById('muteSfx').checked||!ac)return;let o=ac.createOscillator();let g=ac.createGain();o.type=t||'sine';o.frequency.value=f;g.gain.value=vol||0.7;o.connect(g);g.connect(sfxGain);let now=ac.currentTime;o.start(now);g.gain.setValueAtTime(g.gain.value,now);g.gain.exponentialRampToValueAtTime(0.0001,now+d);o.stop(now+d)}
 function playSfx(name){if(document.getElementById('muteSfx').checked||!ac)return;if(name==='correct'){playTone(880,0.12,'triangle',0.6);setTimeout(()=>playTone(1320,0.1,'triangle',0.6),80)}else if(name==='wrong'){playTone(220,0.18,'sawtooth',0.6)}else if(name==='hit'){playTone(180,0.12,'square',0.5);setTimeout(()=>playTone(140,0.12,'square',0.5),90)}else if(name==='ring'){playTone(1046,0.08,'triangle',0.5)}}
 function speak(t){try{if(document.getElementById('muteSfx').checked)return;let u=new SpeechSynthesisUtterance(t);u.rate=0.95;u.pitch=1;u.lang='en-US';speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}
-function jumble(w){if(w.length<3)return null;let i=1+((Math.random()*(w.length-2))|0);let orig=w[i];let isUpper=orig===orig.toUpperCase();let letters='abcdefghijklmnopqrstuvwxyz';let c=orig.toLowerCase();let rep=c;let guard=0;while(rep===c&&guard<50){rep=letters[(Math.random()*26)|0];guard++}if(isUpper)rep=rep.toUpperCase();return w.slice(0,i)+rep+w.slice(i+1)}
+function jumble(w){if(w.length<4)return null;let tries=0;while(tries++<50){let i=1+((Math.random()*(w.length-3))|0);let a=w.split('');let t=a[i];a[i]=a[i+1];a[i+1]=t;let out=a.join('');if(out!==w)return out}return null}
 function refreshList(){document.getElementById('wordList').innerHTML=original.map(w=>'<div>'+w+'</div>').join('')}
 let bossQueue=[];
 function spawnPair(fromBoss){let src=fromBoss?bossQueue:pool;if(src.length===0)return;let w=src.shift();let j=jumble(w);if(!j){src.push(w);return spawnPair(fromBoss)}let leftFirst=Math.random()<0.5;let left=leftFirst?w:j;let right=leftFirst?j:w;active.push({y:spawnY,speed:(boss?bossSpeed:1.5),left,right,correctLane:(right===w?1:0),word:w,resolved:false});speak(w)}
