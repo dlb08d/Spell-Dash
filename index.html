@@ -56,7 +56,7 @@ function layout(){let h=canvas.height;baseY=h*0.85;choiceY=h*0.78;spawnY=h*0.22}
 window.addEventListener('resize',()=>{fit();layout()});
 window.addEventListener('orientationchange',()=>{setTimeout(()=>{fit();layout()},150)});
 fit();
-let lanes=2;let playerLane=0;function laneXAtY(y,lane){let h=canvas.height;let w=canvas.width;let t=Math.max(0,Math.min(1,(y-h*0.15)/(h*0.85)));let center=w*0.5;let offTop = lane===0? -w*0.08 : w*0.08;let offBot = lane===0? -w*0.35 : w*0.35;let off = offTop + (offBot-offTop)*t;return center+off}
+let lanes=2;let playerLane=0;function laneXAtY(y,lane){let h=canvas.height;let w=canvas.width;let t=Math.max(0,Math.min(1,(y-h*0.15)/(h*0.85)));let center=w*0.5;let offTop=lane===0?-w*0.08:w*0.08;let offBot=lane===0?-w*0.35:w*0.35;let off=offTop+(offBot-offTop)*t;return center+off}
 let baseY;let choiceY;let spawnY;layout();
 let pool=[];let original=[];let active=[];let obstacles=[];let tick=0;let playing=false;let boss=false;let bossClears=0;let bossGoal=0;let bossSpeed=2.6;let rafId=null;
 let rings=0;let highscores=[];let maxRings=0;let nextPairIn=0;
@@ -67,7 +67,7 @@ function ensureAudio(){try{if(!ac){ac=new (window.AudioContext||window.webkitAud
 function playTone(f,d,t,vol){if(document.getElementById('muteSfx').checked||!ac)return;let o=ac.createOscillator();let g=ac.createGain();o.type=t||'sine';o.frequency.value=f;g.gain.value=vol||0.7;o.connect(g);g.connect(sfxGain);let now=ac.currentTime;o.start(now);g.gain.setValueAtTime(g.gain.value,now);g.gain.exponentialRampToValueAtTime(0.0001,now+d);o.stop(now+d)}
 function playSfx(name){if(document.getElementById('muteSfx').checked||!ac)return;if(name==='correct'){playTone(880,0.12,'triangle',0.6);setTimeout(()=>playTone(1320,0.1,'triangle',0.6),80)}else if(name==='wrong'){playTone(220,0.18,'sawtooth',0.6)}else if(name==='hit'){playTone(180,0.12,'square',0.5);setTimeout(()=>playTone(140,0.12,'square',0.5),90)}else if(name==='ring'){playTone(1046,0.08,'triangle',0.5)}}
 function speak(t){try{if(document.getElementById('muteSfx').checked)return;let u=new SpeechSynthesisUtterance(t);u.rate=0.95;u.pitch=1;u.lang='en-US';speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}
-function jumble(w){if(w.length<4)return null;let mid=w.slice(1,-1).split('');for(let i=0;i<24;i++){let s=mid.slice().sort(()=>Math.random()-0.5).join('');if(s!==mid.join(''))return w[0]+s+w[w.length-1]}return null}
+function jumble(w){if(w.length<3)return null;let i=1+((Math.random()*(w.length-2))|0);let orig=w[i];let isUpper=orig===orig.toUpperCase();let letters='abcdefghijklmnopqrstuvwxyz';let c=orig.toLowerCase();let rep=c;let guard=0;while(rep===c&&guard<50){rep=letters[(Math.random()*26)|0];guard++}if(isUpper)rep=rep.toUpperCase();return w.slice(0,i)+rep+w.slice(i+1)}
 function refreshList(){document.getElementById('wordList').innerHTML=original.map(w=>'<div>'+w+'</div>').join('')}
 let bossQueue=[];
 function spawnPair(fromBoss){let src=fromBoss?bossQueue:pool;if(src.length===0)return;let w=src.shift();let j=jumble(w);if(!j){src.push(w);return spawnPair(fromBoss)}let leftFirst=Math.random()<0.5;let left=leftFirst?w:j;let right=leftFirst?j:w;active.push({y:spawnY,speed:(boss?bossSpeed:1.5),left,right,correctLane:(right===w?1:0),word:w,resolved:false});speak(w)}
